@@ -85,6 +85,7 @@ struct hdr_aodv_request {
         double          rq_timestamp;   // when REQUEST sent;
         double          rq_position_x;
         double          rq_position_y;
+        double          rq_prev_time;
 					// used to compute route discovery latency
 
   // This define turns on gratuitous replies- see aodv.cc for implementation contributed by

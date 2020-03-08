@@ -52,51 +52,14 @@ static int route_request = 0;
 double xpos2, ypos2;
 int index2;
 int tetangga[1000];
-int packet_received[1000];
+int packet_received[1000], packet_received_hello[1000];
 //int packet_sent[1000], packet_received[1000], left_energy[1000], delay[1000], dist[1000];
-int packet_sent[1000];
+int packet_sent[1000], packet_sent_hello[1000];
 double trustness_value[1000];
-
-/*trustness_value[0]=0.75;
-trustness_value[1]=0.8;
-trustness_value[2]=0.85;
-trustness_value[3]=0.9;
-trustness_value[4]=0.95;
-trustness_value[5]=1.00;
-trustness_value[6]=1.05;
-trustness_value[7]=1.10;
-trustness_value[8]=1.15;
-trustness_value[9]=1.2;
-trustness_value[10]=1.25;
-trustness_value[11]=1.3;
-trustness_value[12]=1.35;
-trustness_value[13]=1.4;
-trustness_value[14]=1.45;
-trustness_value[15]=1.5;
-trustness_value[16]=1.55;
-trustness_value[17]=1.6;
-trustness_value[18]=1.65;
-trustness_value[19]=1.7;
-trustness_value[20]=1.75;
-trustness_value[21]=1.8;
-trustness_value[22]=1.85;
-trustness_value[23]=1.9;
-trustness_value[24]=1.95;
-trustness_value[25]=2.00;
-trustness_value[26]=2.05;
-trustness_value[27]=2.10;
-trustness_value[28]=2.15;
-trustness_value[29]=2.2;
-trustness_value[30]=2.25;
-trustness_value[31]=2.3;
-trustness_value[32]=2.35;
-trustness_value[33]=2.4;
-trustness_value[34]=2.45;
-trustness_value[35]=2.5;
-trustness_value[36]=2.55;
-trustness_value[37]=2.6;
-trustness_value[38]=2.65;
-trustness_value[39]=2.7;*/
+double trustness_value_hello[1000];
+double max_trust[200];
+double delay_hello[1000], prev_time_hello;
+double prev_pos_x, prev_pos_y, position[1000], max_index[1000];
 
 /*
   TCL Hooks
@@ -133,7 +96,7 @@ AODV::command(int argc, const char*const* argv) {
   trustness_value[0]=0.75;
   trustness_value[1]=0.8;
   trustness_value[2]=0.85;
-  trustness_value[3]=0.9;
+  trustness_value[3]=0.7;
   trustness_value[4]=0.95;
   trustness_value[5]=1.00;
   trustness_value[6]=1.05;
@@ -166,8 +129,8 @@ AODV::command(int argc, const char*const* argv) {
   trustness_value[33]=2.4;
   trustness_value[34]=2.45;
   trustness_value[35]=2.5;
-  trustness_value[36]=2.55;
-  trustness_value[37]=2.6;
+  trustness_value[36]=2.6;
+  trustness_value[37]=2.55;
   trustness_value[38]=2.65;
   trustness_value[39]=2.7;
   //calculateTrustness();
@@ -338,6 +301,7 @@ NeighborTimer::handle(Event*) {
 
 void
 RouteCacheTimer::handle(Event*) {
+  memset(packet_received_hello, 0, sizeof(packet_received_hello));
   double now = Scheduler::instance().clock();
   FILE *fp;
   fp = fopen("debug.txt", "a");
@@ -942,6 +906,21 @@ aodv_rt_entry *rt;
   fprintf(fp2, "\n %f Trustness at node %d set! The value is %.4f", Scheduler::instance().clock(), index, trustness[index]);
   fclose(fp2);
 
+ AODV_Neighbor *nb = nbhead.lh_first;
+
+ //int temp[50], i=0;
+ /*int max_trust = -1;
+ for(; nb; nb = nb->nb_link.le_next) {
+  //int i=0;
+  //temp[i] = nb->nb_addr;
+  //i++;
+  FILE *fp2;
+  fp2 = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f idx: %d tetangga node %d: %d", now, index, nb->nb_addr);
+  fclose(fp2);
+   if(nb->nb_addr == index) break;
+ }*/
+
   #ifdef DEBUG
   //printf("Posisi node %d adalah %.4f, %.4f", index, xpos, ypos);
   #endif
@@ -974,6 +953,19 @@ aodv_rt_entry *rt;
    return;
  }
 
+  /*double max_trust = -1;
+  int node_max_trust = -1;
+  for (int i=0;i<tetangga[index];i++) {
+    if (trustness_value[temp[i]] > max_trust) {
+      max_trust = trustness_value[temp[i]];
+      node_max_trust = temp[i];
+    }
+  }*/
+  //FILE *fp2;
+  /*fp2 = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f max trust: %.4f, at node %d", now, max_trust, node_max_trust);
+  fclose(fp2);*/
+
  //filter rreq based on neighbor
  /*if (tetangga[index] < 5 && rq->rq_dst != index) {
   #ifdef DEBUG
@@ -989,16 +981,33 @@ aodv_rt_entry *rt;
  //calculateTrustness();
 
  //coba trustness
- if (trustness_value[index] < 1 && rq->rq_dst != index) {
+ /*if (trustness_value_hello[index] < max_trust[ih->saddr()] && rq->rq_dst != index) {
   #ifdef DEBUG
     double now = Scheduler::instance().clock();
     FILE *fp;
     fp = fopen("debug.txt", "a");
-    fprintf(fp, "\n %f node %d didrop, trustness: %.2f", now, index, trustness_value[index]);
+    fprintf(fp, "\n %f node %d didrop, trustness: %.2f", now, index, trustness_value_hello[index]);
   #endif
   Packet::free(p);
+  //nb_delete(index);
   return;
- }
+ }*/
+
+  //coba trustness
+/*int temp = tetangga[index];
+for (int i=0;i<temp;i++) {
+  if (trustness_value[nb->nb_addr] < max_trust[nb->nb_addr] && rq->rq_dst != index) {
+  #ifdef DEBUG
+  double now = Scheduler::instance().clock();
+  FILE *fp;
+  fp = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f node %d didrop, trustness: %.2f", now, index, trustness_value[index]);
+  #endif
+  nb_delete(index);
+  }
+ }*/
+
+
 
  /*
   * Cache the broadcast ID
@@ -1128,7 +1137,7 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
  /*
   * Can't reply. So forward the  Route Request
   */
- else {
+ else if (/*trustness_value_hello[index] >= max_trust[ih->saddr()])*/ max_index[ih->saddr()] == index) /*&& rq->rq_dst != index)*/{
    ih->saddr() = index;
    ih->daddr() = IP_BROADCAST;
    rq->rq_hop_count += 1;
@@ -1140,7 +1149,7 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
     fclose(fp);
    #endif
    // Maximum sequence number seen en route
-   if (rt) rq->rq_dst_seqno = max(rt->rt_seqno, rq->rq_dst_seqno);
+   if (rt /*&& trustness_value[index] == max_trust[index]*/) rq->rq_dst_seqno = max(rt->rt_seqno, rq->rq_dst_seqno);
    forward((aodv_rt_entry*) 0, p, DELAY);
    //printf("%i", (aodv_rt_entry*) 0);
    packet_sent[index] = tetangga[index];
@@ -1151,7 +1160,12 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
     fclose(fp2);
    #endif
  }
-
+ /*else {
+  FILE *fp;
+  fp = fopen("debug.txt", "a");
+  fprintf(fp, "\n %.4f node %d didrop: trust: %.4f", Scheduler::instance().clock(), index, trustness_value_hello[index]);
+  fclose(fp);
+  }*/
 }
 
 
@@ -1250,7 +1264,7 @@ if(ih->daddr() == index || suppress_reply) {
  /*
   * Otherwise, forward the Route Reply.
   */
- else {
+ else /*if (trustness_value[index] == max_trust[ih->saddr()])*/ {
  // Find the rt entry
 aodv_rt_entry *rt0 = rtable.rt_lookup(ih->daddr());
    // If the rt is up, forward
@@ -1353,11 +1367,16 @@ struct hdr_ip *ih = HDR_IP(p);
   //FILE *fp2;
   fp = fopen("debug.txt", "a");
   //fp2 = fopen("debug2.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::forward ke node %d", now, index);
+  fprintf(fp, "\n %f fungsi AODV::forward ada di node %d", now, index);
   //fprintf(fp2, "\n %d", hops);
   fclose(fp);
   //fclose(fp2);
 #endif
+
+  /*if (trustness_value[index] < max_trust[ih->saddr()]) {
+    Packet::free(p);
+    drop(p, DROP_RTR_TTL);
+  }*/
 
  if(ih->ttl_ == 0) {
 #ifdef DEBUG
@@ -1659,11 +1678,20 @@ fprintf(stderr, "sending Error from %d at %.2f\n", index, Scheduler::instance().
 
 void
 AODV::sendHello() {
+  iNode = (MobileNode *) (Node::get_node_by_address (index) );
+  xpos = iNode->X();
+  ypos = iNode->Y();
+  iEnergy = iNode->energy_model()->energy();
+  prev_pos_x = xpos;
+  prev_pos_y = ypos;
+  packet_sent_hello[index]++;
   memset(packet_received, 0, sizeof(packet_received));
   double now = Scheduler::instance().clock();
+  prev_time_hello = now;
   FILE *fp;
   fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::sendHello sedang berada di node %d", now, index);
+  fprintf(fp, "\n %f fungsi AODV::sendHello sedang berada di node %d: posisi: %.4f, %.4f energi: %.4f", now, index, xpos, ypos, iEnergy);
+  trustness_value_hello[index] = iEnergy;
   fclose(fp);
 Packet *p = Packet::alloc();
 struct hdr_cmn *ch = HDR_CMN(p);
@@ -1701,13 +1729,25 @@ fprintf(stderr, "sending Hello from %d at %.2f\n", index, Scheduler::instance().
 
 void
 AODV::recvHello(Packet *p) {
-  double now = Scheduler::instance().clock();
-  FILE *fp;
-  fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::recvHello sedang berada di node %d", now, index);
-  fclose(fp);
+  iNode = (MobileNode *) (Node::get_node_by_address (index) );
+  xpos = iNode->X();
+  ypos = iNode->Y();
+  iEnergy = iNode->energy_model()->energy();
 //struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aodv_reply *rp = HDR_AODV_REPLY(p);
+struct hdr_cmn *ch = HDR_CMN(p);
+struct hdr_ip *ih = HDR_IP(p);
+  double now = Scheduler::instance().clock();
+  packet_received_hello[ih->saddr()]++;
+  delay_hello[index] = now - prev_time_hello;
+  trustness_value_hello[index] = iEnergy - delay_hello[index];
+  position[index] = sqrt(pow((ypos-prev_pos_y),2) + pow((xpos-prev_pos_x),2));
+  FILE *fp;
+  fp = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f fungsi AODV::recvHello sedang berada di node %d: posisi: %.4f, %.4f, energi: %.4f", now, index, xpos, ypos, iEnergy);
+  fprintf(fp, " Packets received from node %d: %d", ih->saddr(), packet_received_hello[ih->saddr()]);
+  fprintf(fp, "\n trust at node %d: %.3f, delay: %f, dist: %f", index, trustness_value_hello[index], delay_hello[index], position[index]);
+  fclose(fp);
 AODV_Neighbor *nb;
 
  nb = nb_lookup(rp->rp_dst);
@@ -1725,11 +1765,6 @@ AODV_Neighbor *nb;
 void
 AODV::nb_insert(nsaddr_t id) {
   tetangga[index]+=1;
-  double now = Scheduler::instance().clock();
-  FILE *fp;
-  fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::nb_insert: node %d menambahkan node tetangga %d, jumlah tetangga: %d", now, index, id, tetangga[index]);
-  fclose(fp);
 AODV_Neighbor *nb = new AODV_Neighbor(id);
 
  assert(nb);
@@ -1738,21 +1773,43 @@ AODV_Neighbor *nb = new AODV_Neighbor(id);
  LIST_INSERT_HEAD(&nbhead, nb, nb_link);
  seqno += 2;             // set of neighbors changed
  assert ((seqno%2) == 0);
+  double now = Scheduler::instance().clock();
+  FILE *fp;
+  fp = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f fungsi AODV::nb_insert: node %d menambahkan node tetangga %d, jumlah tetangga: %d", now, index, id, tetangga[index]);
+  fclose(fp);
 }
 
 
 AODV_Neighbor*
 AODV::nb_lookup(nsaddr_t id) {
   double now = Scheduler::instance().clock();
+  double temp;
   FILE *fp;
   fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::nb_lookup", now);
+  fprintf(fp, "\n %f fungsi AODV::nb_lookup sedang berada di node %d", now, index);
   fclose(fp);
 AODV_Neighbor *nb = nbhead.lh_first;
-
+  double counter = 0, temp_trust=-1;
+  //int max_index = -1;
  for(; nb; nb = nb->nb_link.le_next) {
+  temp = temp + trustness_value_hello[nb->nb_addr];
+  /*FILE *fp2;
+  fp2 = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f tetangga node %d: %d, trust: %.3f", now, index, nb->nb_addr, trustness_value_hello[nb->nb_addr]);
+  fclose(fp2);*/
+  counter++;
+  if (trustness_value_hello[nb->nb_addr] > temp_trust) {
+    temp_trust = trustness_value_hello[nb->nb_addr];
+    max_index[index]=nb->nb_addr;
+  }
    if(nb->nb_addr == id) break;
  }
+ if(tetangga[index] == 0) max_trust[index]=0;
+ else max_trust[index] = temp/counter;
+ fp = fopen("debug.txt", "a");
+ fprintf(fp, "\n %f avg trust at neighbour node %d: %f", now, index, max_trust[index]);
+ fclose(fp);
  return nb;
 }
 

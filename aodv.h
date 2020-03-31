@@ -44,7 +44,7 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 #include <classifier/classifier-port.h>
 #include <mobilenode.h>  //for manet and energy
 //#include <mac/wireless-phy.h>
-//#include <aodv/wireless-phy.h>
+
 /*
   Allows local repair of routes 
 */

@@ -36,7 +36,6 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 #include <cmu-trace.h>
 #include <iostream>
 #include <math.h>
-//#include <aodv/wireless-phy.h>
 //#include <energy-model.h>
 
 #define max(a,b)        ( (a) > (b) ? (a) : (b) )
@@ -49,17 +48,55 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 static int route_request = 0;
 #endif
 
-double xpos2, ypos2;
+double xpos2, ypos2, dist;
 int index2;
 int tetangga[1000];
-int packet_received[1000], packet_received_hello[1000];
-//int packet_sent[1000], packet_received[1000], left_energy[1000], delay[1000], dist[1000];
-int packet_sent[1000], packet_sent_hello[1000];
+int packet_sent[1000], packet_received[1000], left_energy[1000], delay[1000];
 double trustness_value[1000];
-double trustness_value_hello[1000];
-double max_trust[200];
-double delay_hello[1000], prev_time_hello;
-double prev_pos_x, prev_pos_y, position[1000], max_index[1000];
+
+int packet_sent_hello[1000], packet_received_hello[1000];
+double energy_hello[1000], delay_hello[1000], signal_hello[1000], trust_hello[1000], times, avg_trust[1000];
+
+/*trustness_value[0]=0.75;
+trustness_value[1]=0.8;
+trustness_value[2]=0.85;
+trustness_value[3]=0.9;
+trustness_value[4]=0.95;
+trustness_value[5]=1.00;
+trustness_value[6]=1.05;
+trustness_value[7]=1.10;
+trustness_value[8]=1.15;
+trustness_value[9]=1.2;
+trustness_value[10]=1.25;
+trustness_value[11]=1.3;
+trustness_value[12]=1.35;
+trustness_value[13]=1.4;
+trustness_value[14]=1.45;
+trustness_value[15]=1.5;
+trustness_value[16]=1.55;
+trustness_value[17]=1.6;
+trustness_value[18]=1.65;
+trustness_value[19]=1.7;
+trustness_value[20]=1.75;
+trustness_value[21]=1.8;
+trustness_value[22]=1.85;
+trustness_value[23]=1.9;
+trustness_value[24]=1.95;
+trustness_value[25]=2.00;
+trustness_value[26]=2.05;
+trustness_value[27]=2.10;
+trustness_value[28]=2.15;
+trustness_value[29]=2.2;
+trustness_value[30]=2.25;
+trustness_value[31]=2.3;
+trustness_value[32]=2.35;
+trustness_value[33]=2.4;
+trustness_value[34]=2.45;
+trustness_value[35]=2.5;
+trustness_value[36]=2.55;
+trustness_value[37]=2.6;
+trustness_value[38]=2.65;
+trustness_value[39]=2.7;*/
 
 /*
   TCL Hooks
@@ -71,8 +108,8 @@ static class AODVHeaderClass : public PacketHeaderClass {
 public:
         AODVHeaderClass() : PacketHeaderClass("PacketHeader/AODV",
                                               sizeof(hdr_all_aodv)) {
-    bind_offset(&hdr_aodv::offset_);
-  } 
+	  bind_offset(&hdr_aodv::offset_);
+	} 
 } class_rtProtoAODV_hdr;
 
 static class AODVclass : public TclClass {
@@ -81,7 +118,7 @@ public:
         TclObject* create(int argc, const char*const* argv) {
           assert(argc == 5);
           //return (new AODV((nsaddr_t) atoi(argv[4])));
-    return (new AODV((nsaddr_t) Address::instance().str2addr(argv[4])));
+	  return (new AODV((nsaddr_t) Address::instance().str2addr(argv[4])));
         }
 } class_rtProtoAODV;
 
@@ -96,7 +133,7 @@ AODV::command(int argc, const char*const* argv) {
   trustness_value[0]=0.75;
   trustness_value[1]=0.8;
   trustness_value[2]=0.85;
-  trustness_value[3]=0.7;
+  trustness_value[3]=0.9;
   trustness_value[4]=0.95;
   trustness_value[5]=1.00;
   trustness_value[6]=1.05;
@@ -129,8 +166,8 @@ AODV::command(int argc, const char*const* argv) {
   trustness_value[33]=2.4;
   trustness_value[34]=2.45;
   trustness_value[35]=2.5;
-  trustness_value[36]=2.6;
-  trustness_value[37]=2.55;
+  trustness_value[36]=2.55;
+  trustness_value[37]=2.6;
   trustness_value[38]=2.65;
   trustness_value[39]=2.7;
   //calculateTrustness();
@@ -163,7 +200,7 @@ AODV::command(int argc, const char*const* argv) {
     else if(strcmp(argv[1], "log-target") == 0 || strcmp(argv[1], "tracetarget") == 0) {
       logtarget = (Trace*) TclObject::lookup(argv[2]);
       if(logtarget == 0)
-  return TCL_ERROR;
+	return TCL_ERROR;
       return TCL_OK;
     }
     else if(strcmp(argv[1], "drop-target") == 0) {
@@ -175,17 +212,17 @@ AODV::command(int argc, const char*const* argv) {
     ifqueue = (PriQueue*) TclObject::lookup(argv[2]);
       
       if(ifqueue == 0)
-  return TCL_ERROR;
+	return TCL_ERROR;
       return TCL_OK;
     }
     else if (strcmp(argv[1], "port-dmux") == 0) {
-      dmux_ = (PortClassifier *)TclObject::lookup(argv[2]);
-  if (dmux_ == 0) {
-    fprintf (stderr, "%s: %s lookup of %s failed\n", __FILE__,
-    argv[1], argv[2]);
-    return TCL_ERROR;
-  }
-  return TCL_OK;
+    	dmux_ = (PortClassifier *)TclObject::lookup(argv[2]);
+	if (dmux_ == 0) {
+		fprintf (stderr, "%s: %s lookup of %s failed\n", __FILE__,
+		argv[1], argv[2]);
+		return TCL_ERROR;
+	}
+	return TCL_OK;
     }
   }
   return Agent::command(argc, argv);
@@ -196,8 +233,8 @@ AODV::command(int argc, const char*const* argv) {
 */
 
 AODV::AODV(nsaddr_t id) : Agent(PT_AODV),
-        btimer(this), htimer(this), ntimer(this), 
-        rtimer(this), lrtimer(this), rqueue() {
+			  btimer(this), htimer(this), ntimer(this), 
+			  rtimer(this), lrtimer(this), rqueue() {
  
   /*trustness_value[0]=0.75;
   trustness_value[1]=0.8;
@@ -301,7 +338,6 @@ NeighborTimer::handle(Event*) {
 
 void
 RouteCacheTimer::handle(Event*) {
-  memset(packet_received_hello, 0, sizeof(packet_received_hello));
   double now = Scheduler::instance().clock();
   FILE *fp;
   fp = fopen("debug.txt", "a");
@@ -323,18 +359,18 @@ aodv_rt_entry *rt;
 struct hdr_ip *ih = HDR_IP( (Packet *)p);
 
    /* you get here after the timeout in a local repair attempt */
-   /* fprintf(stderr, "%s\n", __FUNCTION__); */
+   /*	fprintf(stderr, "%s\n", __FUNCTION__); */
 
 
     rt = agent->rtable.rt_lookup(ih->daddr());
-  
+	
     if (rt && rt->rt_flags != RTF_UP) {
     // route is yet to be repaired
     // I will be conservative and bring down the route
     // and send route errors upstream.
     /* The following assert fails, not sure why */
     /* assert (rt->rt_flags == RTF_IN_REPAIR); */
-    
+		
       //rt->rt_seqno++;
       agent->rt_down(rt);
       // send RERR
@@ -419,7 +455,7 @@ double total_latency = 0.0;
 
  if (!rt)
    return ((double) NODE_TRAVERSAL_TIME );
-  
+	
  for (i=0; i < MAX_HISTORY; i++) {
    if (rt->rt_disc_latency[i] > 0.0) {
       num_non_zero++;
@@ -475,7 +511,7 @@ nsaddr_t broken_nbr = ch->next_hop_;
     return;
   }
   log_link_broke(p);
-  if((rt = rtable.rt_lookup(ih->daddr())) == 0) {
+	if((rt = rtable.rt_lookup(ih->daddr())) == 0) {
     drop(p, DROP_RTR_MAC_CALLBACK);
     return;
   }
@@ -492,8 +528,8 @@ nsaddr_t broken_nbr = ch->next_hop_;
     // queue the packets for which local repair is done, 
     return;
   }
-  else  
-#endif // LOCAL REPAIR  
+  else	
+#endif // LOCAL REPAIR	
 
   {
     drop(p, DROP_RTR_MAC_CALLBACK);
@@ -501,7 +537,7 @@ nsaddr_t broken_nbr = ch->next_hop_;
     // broken link -Mahesh
 while((p = ifqueue->filter(broken_nbr))) {
      drop(p, DROP_RTR_MAC_CALLBACK);
-    } 
+    }	
     nb_delete(broken_nbr);
   }
 
@@ -530,8 +566,8 @@ struct hdr_aodv_error *re = HDR_AODV_ERROR(rerr);
      re->unreachable_dst_seqno[re->DestCount] = rt->rt_seqno;
 #ifdef DEBUG
      fprintf(stderr, "%s(%f): %d\t(%d\t%u\t%d)\n", __FUNCTION__, CURRENT_TIME,
-         index, re->unreachable_dst[re->DestCount],
-         re->unreachable_dst_seqno[re->DestCount], rt->rt_nexthop);
+		     index, re->unreachable_dst[re->DestCount],
+		     re->unreachable_dst_seqno[re->DestCount], rt->rt_nexthop);
 #endif // DEBUG
      re->DestCount += 1;
      rt_down(rt);
@@ -575,7 +611,7 @@ AODV::local_rt_repair(aodv_rt_entry *rt, Packet *p) {
 
 void
 AODV::rt_update(aodv_rt_entry *rt, u_int32_t seqnum, u_int16_t metric,
-          nsaddr_t nexthop, double expire_time) {
+	       	nsaddr_t nexthop, double expire_time) {
   double now = Scheduler::instance().clock();
   FILE *fp;
   fp = fopen("debug.txt", "a");
@@ -633,15 +669,15 @@ aodv_rt_entry *rt;
   */
  ch->xmit_failure_ = aodv_rt_failed_callback;
  ch->xmit_failure_data_ = (void*) this;
-  rt = rtable.rt_lookup(ih->daddr());
+	rt = rtable.rt_lookup(ih->daddr());
  if(rt == 0) {
-    rt = rtable.rt_add(ih->daddr());
+	  rt = rtable.rt_add(ih->daddr());
  }
 
  /*
   * If the route is up, forward the packet 
   */
-  
+	
  if(rt->rt_flags == RTF_UP) {
    assert(rt->rt_hops != INFINITY2);
    forward(rt, p, NO_DELAY);
@@ -649,12 +685,12 @@ aodv_rt_entry *rt;
  /*
   *  if I am the source of the packet, then do a Route Request.
   */
-  else if(ih->saddr() == index) {
+	else if(ih->saddr() == index) {
    rqueue.enque(p);
    sendRequest(rt->rt_dst);
  }
  /*
-  * A local repair is in progress. Buffer the packet. 
+  *	A local repair is in progress. Buffer the packet. 
   */
  else if (rt->rt_flags == RTF_IN_REPAIR) {
    rqueue.enque(p);
@@ -671,7 +707,7 @@ aodv_rt_entry *rt;
   * For now, drop the packet and send error upstream.
   * Now the route errors are broadcast to upstream
   * neighbors - Mahesh 09/11/99
-  */  
+  */	
  
    assert (rt->rt_flags == RTF_DOWN);
    re->DestCount = 0;
@@ -705,7 +741,7 @@ Packet *p;
    if ((rt->rt_flags == RTF_UP) && (rt->rt_expire < now)) {
    // if a valid route has expired, purge all packets from 
    // send buffer and invalidate the route.                    
-  assert(rt->rt_hops != INFINITY2);
+	assert(rt->rt_hops != INFINITY2);
      while((p = rqueue.deque(rt->rt_dst))) {
 #ifdef DEBUG
        fprintf(stderr, "%s: calling drop()\n",
@@ -870,7 +906,6 @@ void AODV::calculateTrustness() {
 
 void
 AODV::recvRequest(Packet *p) {
-  double distances[1000], energy[1000], delay[1000], trustness[1000];
   double now = Scheduler::instance().clock();
 struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aodv_request *rq = HDR_AODV_REQUEST(p);
@@ -878,48 +913,19 @@ aodv_rt_entry *rt;
   iNode = (MobileNode *) (Node::get_node_by_address (index) );
   xpos = iNode->X();
   ypos = iNode->Y();
-  iEnergy = iNode->energy_model()->energy();
-  //double distance = sqrt(pow((ypos-rq->rq_position_y),2) + pow((xpos-rq->rq_position_x),2));
-  distances[index] = sqrt(pow((ypos-rq->rq_position_y),2) + pow((xpos-rq->rq_position_x),2));
-  delay[index] = now - rq->rq_prev_time;
-  energy[index] = iEnergy; //temporarily
-  packet_received[ih->saddr()]++;
-  recv_signal = p->txinfo_.RxPr; //currently not working as intended
+  dist = sqrt(pow((ypos-rq->rq_position_y),2) + pow((xpos-rq->rq_position_x),2));
+  recv_signal = p->txinfo_.RxPr;
   FILE *fp;
   fp = fopen("debug.txt", "a");
   //fprintf(fp, "\n %f fungsi AODV::recvRequest sedang berada di node %d, posisi %.3f %.3f, jumlah tetangga %d", now, index, xpos, ypos, tetangga[index]);
-  fprintf(fp, "\n %f fungsi AODV::recvRequest sedang berada di node %d, posisi %.3f %.3f, energi: %.4f, trustness node %.4f", now, index, xpos, ypos, energy[index], trustness_value[index]);
+  fprintf(fp, "\n %f fungsi AODV::recvRequest sedang berada di node %d, posisi %.3f %.3f, trustness node %.4ff", now, index, xpos, ypos, trustness_value[index]);
   fprintf(fp, "\n %f Posisi node sebelumnya: (%.3f,%.3f)", now, rq->rq_position_x, rq->rq_position_y);
-  fprintf(fp, "\n %f Prev time: %.4f, delay at node %d: %f", now, rq->rq_prev_time, index, delay[index]);
-  fprintf(fp, "\n %f node sebelumnya: %d, node tujuan: %d", now, ih->saddr(), rq->rq_dst);
-  fprintf(fp, "\n %f jarak antara node %d dan node %d adalah: %.3f, recv signal: %.3f", now, index, ih->saddr(), distances[index], recv_signal);
-  fprintf(fp, "\n %f Paket diterima dari node %d: %d", now, ih->saddr(), packet_received[ih->saddr()]);
+  fprintf(fp, "\n %f node sumber: %d, node tujuan: %d", now, rq->rq_src, rq->rq_dst);
+  fprintf(fp, "\n %f jarak antara node %d dan node %d adalah: %.3f, recv signal: %.3f", now, index, index2, dist, recv_signal);
   fclose(fp);
 
   rq->rq_position_x = xpos;
   rq->rq_position_y = ypos;
-  rq->rq_prev_time = now;
-
-  trustness[index] = energy[index] + delay[index]; //prelim
-  FILE *fp2;
-  fp2 = fopen("debug.txt", "a");
-  fprintf(fp2, "\n %f Trustness at node %d set! The value is %.4f", Scheduler::instance().clock(), index, trustness[index]);
-  fclose(fp2);
-
- AODV_Neighbor *nb = nbhead.lh_first;
-
- //int temp[50], i=0;
- /*int max_trust = -1;
- for(; nb; nb = nb->nb_link.le_next) {
-  //int i=0;
-  //temp[i] = nb->nb_addr;
-  //i++;
-  FILE *fp2;
-  fp2 = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f idx: %d tetangga node %d: %d", now, index, nb->nb_addr);
-  fclose(fp2);
-   if(nb->nb_addr == index) break;
- }*/
 
   #ifdef DEBUG
   //printf("Posisi node %d adalah %.4f, %.4f", index, xpos, ypos);
@@ -953,18 +959,10 @@ aodv_rt_entry *rt;
    return;
  }
 
-  /*double max_trust = -1;
-  int node_max_trust = -1;
-  for (int i=0;i<tetangga[index];i++) {
-    if (trustness_value[temp[i]] > max_trust) {
-      max_trust = trustness_value[temp[i]];
-      node_max_trust = temp[i];
-    }
-  }*/
-  //FILE *fp2;
-  /*fp2 = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f max trust: %.4f, at node %d", now, max_trust, node_max_trust);
-  fclose(fp2);*/
+ if (trust_hello[index] < avg_trust[ih->saddr()] && rq->rq_dst != index) {
+  Packet::free(p);
+  return;
+ }
 
  //filter rreq based on neighbor
  /*if (tetangga[index] < 5 && rq->rq_dst != index) {
@@ -981,33 +979,16 @@ aodv_rt_entry *rt;
  //calculateTrustness();
 
  //coba trustness
- /*if (trustness_value_hello[index] < max_trust[ih->saddr()] && rq->rq_dst != index) {
+ /*if (trustness_value[index] < 0.88 && rq->rq_dst != index) {
   #ifdef DEBUG
     double now = Scheduler::instance().clock();
     FILE *fp;
     fp = fopen("debug.txt", "a");
-    fprintf(fp, "\n %f node %d didrop, trustness: %.2f", now, index, trustness_value_hello[index]);
+    fprintf(fp, "\n %f node %d didrop, trustness: %.2f", now, index, trustness_value[index]);
   #endif
   Packet::free(p);
-  //nb_delete(index);
   return;
  }*/
-
-  //coba trustness
-/*int temp = tetangga[index];
-for (int i=0;i<temp;i++) {
-  if (trustness_value[nb->nb_addr] < max_trust[nb->nb_addr] && rq->rq_dst != index) {
-  #ifdef DEBUG
-  double now = Scheduler::instance().clock();
-  FILE *fp;
-  fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f node %d didrop, trustness: %.2f", now, index, trustness_value[index]);
-  #endif
-  nb_delete(index);
-  }
- }*/
-
-
 
  /*
   * Cache the broadcast ID
@@ -1032,12 +1013,12 @@ for (int i=0;i<temp;i++) {
    rt0->rt_expire = max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE));
 
    if ( (rq->rq_src_seqno > rt0->rt_seqno ) ||
-      ((rq->rq_src_seqno == rt0->rt_seqno) && 
-   (rq->rq_hop_count < rt0->rt_hops)) ) {
+    	((rq->rq_src_seqno == rt0->rt_seqno) && 
+	 (rq->rq_hop_count < rt0->rt_hops)) ) {
    // If we have a fresher seq no. or lesser #hops for the 
    // same seq no., update the rt entry. Else don't bother.
 rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
-             max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE)) );
+     	       max(rt0->rt_expire, (CURRENT_TIME + REV_ROUTE_LIFE)) );
      if (rt0->rt_req_timeout > 0.0) {
      // Reset the soft state and 
      // Set expiry time to CURRENT_TIME + ACTIVE_ROUTE_TIMEOUT
@@ -1057,7 +1038,7 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
      Packet *buffered_pkt;
      while ((buffered_pkt = rqueue.deque(rt0->rt_dst))) {
        if (rt0 && (rt0->rt_flags == RTF_UP)) {
-  assert(rt0->rt_hops != INFINITY2);
+	assert(rt0->rt_hops != INFINITY2);
          forward(rt0, buffered_pkt, NO_DELAY);
        }
      }
@@ -1100,17 +1081,17 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
  // I am not the destination, but I may have a fresh enough route.
 
  else if (rt && (rt->rt_hops != INFINITY2) && 
-      (rt->rt_seqno >= rq->rq_dst_seqno) ) {
+	  	(rt->rt_seqno >= rq->rq_dst_seqno) ) {
 
    //assert (rt->rt_flags == RTF_UP);
    assert(rq->rq_dst == rt->rt_dst);
-   //assert ((rt->rt_seqno%2) == 0);  // is the seqno even?
+   //assert ((rt->rt_seqno%2) == 0);	// is the seqno even?
    sendReply(rq->rq_src,
              rt->rt_hops + 1,
              rq->rq_dst,
              rt->rt_seqno,
-       (u_int32_t) (rt->rt_expire - CURRENT_TIME),
-       //             rt->rt_expire - CURRENT_TIME,
+	     (u_int32_t) (rt->rt_expire - CURRENT_TIME),
+	     //             rt->rt_expire - CURRENT_TIME,
              rq->rq_timestamp);
    // Insert nexthops to RREQ source and RREQ destination in the
    // precursor lists of destination and source respectively
@@ -1123,8 +1104,8 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
              rq->rq_hop_count,
              rq->rq_src,
              rq->rq_src_seqno,
-       (u_int32_t) (rt->rt_expire - CURRENT_TIME),
-       //             rt->rt_expire - CURRENT_TIME,
+	     (u_int32_t) (rt->rt_expire - CURRENT_TIME),
+	     //             rt->rt_expire - CURRENT_TIME,
              rq->rq_timestamp);
 #endif
    
@@ -1132,12 +1113,12 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
    
 // DONE: Included gratuitous replies to be sent as per IETF aodv draft specification. As of now, G flag has not been dynamically used and is always set or reset in aodv-packet.h --- Anant Utgikar, 09/16/02.
 
-  Packet::free(p);
+	Packet::free(p);
  }
  /*
   * Can't reply. So forward the  Route Request
   */
- else if (/*trustness_value_hello[index] >= max_trust[ih->saddr()])*/ max_index[ih->saddr()] == index) /*&& rq->rq_dst != index)*/{
+ else {
    ih->saddr() = index;
    ih->daddr() = IP_BROADCAST;
    rq->rq_hop_count += 1;
@@ -1149,23 +1130,11 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
     fclose(fp);
    #endif
    // Maximum sequence number seen en route
-   if (rt /*&& trustness_value[index] == max_trust[index]*/) rq->rq_dst_seqno = max(rt->rt_seqno, rq->rq_dst_seqno);
+   if (rt) rq->rq_dst_seqno = max(rt->rt_seqno, rq->rq_dst_seqno);
    forward((aodv_rt_entry*) 0, p, DELAY);
    //printf("%i", (aodv_rt_entry*) 0);
-   packet_sent[index] = tetangga[index];
-   #ifdef DEBUG
-    FILE *fp2;
-    fp2 = fopen("debug.txt", "a");
-    fprintf(fp2, "\n %.4f Packet sent from node %d: %d", Scheduler::instance().clock(), index, packet_sent[index]);
-    fclose(fp2);
-   #endif
  }
- /*else {
-  FILE *fp;
-  fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %.4f node %d didrop: trust: %.4f", Scheduler::instance().clock(), index, trustness_value_hello[index]);
-  fclose(fp);
-  }*/
+
 }
 
 
@@ -1182,7 +1151,7 @@ struct hdr_aodv_reply *rp = HDR_AODV_REPLY(p);
 aodv_rt_entry *rt;
 char suppress_reply = 0;
 double delay = 0.0;
-  
+	
 #ifdef DEBUG
  fprintf(stderr, "%d - %s: received a REPLY\n", index, __FUNCTION__);
 #endif // DEBUG
@@ -1214,10 +1183,10 @@ double delay = 0.0;
  if ( (rt->rt_seqno < rp->rp_dst_seqno) ||   // newer route 
       ((rt->rt_seqno == rp->rp_dst_seqno) &&  
        (rt->rt_hops > rp->rp_hop_count)) ) { // shorter or better route
-  
+	
   // Update the rt entry 
   rt_update(rt, rp->rp_dst_seqno, rp->rp_hop_count,
-    rp->rp_src, CURRENT_TIME + rp->rp_lifetime);
+		rp->rp_src, CURRENT_TIME + rp->rp_lifetime);
 
   // reset the soft state
   rt->rt_req_cnt = 0;
@@ -1227,12 +1196,12 @@ double delay = 0.0;
 if (ih->daddr() == index) { // If I am the original source
   // Update the route discovery latency statistics
   // rp->rp_timestamp is the time of request origination
-    
+		
     rt->rt_disc_latency[(unsigned char)rt->hist_indx] = (CURRENT_TIME - rp->rp_timestamp)
                                          / (double) rp->rp_hop_count;
     // increment indx for next time
     rt->hist_indx = (rt->hist_indx + 1) % MAX_HISTORY;
-  } 
+  }	
 
   /*
    * Send all packets queued in the sendbuffer destined for
@@ -1264,7 +1233,7 @@ if(ih->daddr() == index || suppress_reply) {
  /*
   * Otherwise, forward the Route Reply.
   */
- else /*if (trustness_value[index] == max_trust[ih->saddr()])*/ {
+ else {
  // Find the rt entry
 aodv_rt_entry *rt0 = rtable.rt_lookup(ih->daddr());
    // If the rt is up, forward
@@ -1309,32 +1278,32 @@ struct hdr_aodv_error *nre = HDR_AODV_ERROR(rerr);
  // For each unreachable destination
    rt = rtable.rt_lookup(re->unreachable_dst[i]);
    if ( rt && (rt->rt_hops != INFINITY2) &&
-  (rt->rt_nexthop == ih->saddr()) &&
-      (rt->rt_seqno <= re->unreachable_dst_seqno[i]) ) {
-  assert(rt->rt_flags == RTF_UP);
-  assert((rt->rt_seqno%2) == 0); // is the seqno even?
+	(rt->rt_nexthop == ih->saddr()) &&
+     	(rt->rt_seqno <= re->unreachable_dst_seqno[i]) ) {
+	assert(rt->rt_flags == RTF_UP);
+	assert((rt->rt_seqno%2) == 0); // is the seqno even?
 #ifdef DEBUG
      fprintf(stderr, "%s(%f): %d\t(%d\t%u\t%d)\t(%d\t%u\t%d)\n", __FUNCTION__,CURRENT_TIME,
-         index, rt->rt_dst, rt->rt_seqno, rt->rt_nexthop,
-         re->unreachable_dst[i],re->unreachable_dst_seqno[i],
-               ih->saddr());
+		     index, rt->rt_dst, rt->rt_seqno, rt->rt_nexthop,
+		     re->unreachable_dst[i],re->unreachable_dst_seqno[i],
+	             ih->saddr());
 #endif // DEBUG
-      rt->rt_seqno = re->unreachable_dst_seqno[i];
-      rt_down(rt);
+     	rt->rt_seqno = re->unreachable_dst_seqno[i];
+     	rt_down(rt);
 
    // Not sure whether this is the right thing to do
    Packet *pkt;
-  while((pkt = ifqueue->filter(ih->saddr()))) {
-          drop(pkt, DROP_RTR_MAC_CALLBACK);
-      }
+	while((pkt = ifqueue->filter(ih->saddr()))) {
+        	drop(pkt, DROP_RTR_MAC_CALLBACK);
+     	}
 
      // if precursor list non-empty add to RERR and delete the precursor list
-      if (!rt->pc_empty()) {
-        nre->unreachable_dst[nre->DestCount] = rt->rt_dst;
-        nre->unreachable_dst_seqno[nre->DestCount] = rt->rt_seqno;
-        nre->DestCount += 1;
-    rt->pc_delete();
-      }
+     	if (!rt->pc_empty()) {
+     		nre->unreachable_dst[nre->DestCount] = rt->rt_dst;
+     		nre->unreachable_dst_seqno[nre->DestCount] = rt->rt_seqno;
+     		nre->DestCount += 1;
+		rt->pc_delete();
+     	}
    }
  } 
 
@@ -1367,16 +1336,11 @@ struct hdr_ip *ih = HDR_IP(p);
   //FILE *fp2;
   fp = fopen("debug.txt", "a");
   //fp2 = fopen("debug2.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::forward ada di node %d", now, index);
+  fprintf(fp, "\n %f fungsi AODV::forward ke node %d", now, index);
   //fprintf(fp2, "\n %d", hops);
   fclose(fp);
   //fclose(fp2);
 #endif
-
-  /*if (trustness_value[index] < max_trust[ih->saddr()]) {
-    Packet::free(p);
-    drop(p, DROP_RTR_TTL);
-  }*/
 
  if(ih->ttl_ == 0) {
 #ifdef DEBUG
@@ -1388,10 +1352,10 @@ struct hdr_ip *ih = HDR_IP(p);
  }
 
  if ((( ch->ptype() != PT_AODV && ch->direction() == hdr_cmn::UP ) &&
-  ((u_int32_t)ih->daddr() == IP_BROADCAST))
-    || (ih->daddr() == here_.addr_)) {
-  dmux_->recv(p,0);
-  return;
+	((u_int32_t)ih->daddr() == IP_BROADCAST))
+		|| (ih->daddr() == here_.addr_)) {
+	dmux_->recv(p,0);
+	return;
  }
 
  if (rt) {
@@ -1416,7 +1380,7 @@ if (ih->daddr() == (nsaddr_t) IP_BROADCAST) {
       *  Jitter the sending of AODV broadcast packets by 10ms
       */
      Scheduler::instance().schedule(target_, p,
-                 0.01 * Random::uniform());
+      				   0.01 * Random::uniform());
    } else {
      Scheduler::instance().schedule(target_, p, 0.);  // No jitter
    }
@@ -1439,7 +1403,6 @@ AODV::sendRequest(nsaddr_t dst) {
   iNode = (MobileNode *) (Node::get_node_by_address (index) );
   xpos = iNode->X();
   ypos = iNode->Y();
-  iEnergy = iNode->energy_model()->energy();
   index2 = index;
   xpos2 = xpos;
   ypos2 = ypos;
@@ -1531,21 +1494,13 @@ aodv_rt_entry *rt = rtable.rt_lookup(dst);
    rt->rt_req_timeout = CURRENT_TIME + MAX_RREQ_TIMEOUT;
  rt->rt_expire = 0;
 
- //modif packet sent
- packet_sent[index] = tetangga[index];
- FILE *fp2;
- fp2 = fopen("debug.txt", "a");
- fprintf(fp2, "\n %f Packet sent from node %d: %d", Scheduler::instance().clock(), index, packet_sent[index]);
- fclose(fp2);
-
-
 #ifdef DEBUG
  fprintf(stderr, "(%2d) - %2d sending Route Request, dst: %d, tout %f ms\n",
-           ++route_request, 
-     index, rt->rt_dst, 
-     rt->rt_req_timeout - CURRENT_TIME);
-#endif  // DEBUG
-  
+	         ++route_request, 
+		 index, rt->rt_dst, 
+		 rt->rt_req_timeout - CURRENT_TIME);
+#endif	// DEBUG
+	
 
  // Fill out the RREQ packet 
  // ch->uid() = 0;
@@ -1570,13 +1525,13 @@ aodv_rt_entry *rt = rtable.rt_lookup(dst);
  rq->rq_src = index;
  rq->rq_position_x = xpos;
  rq->rq_position_y = ypos;
- rq->rq_prev_time = Scheduler::instance().clock();
  seqno += 2;
  assert ((seqno%2) == 0);
  rq->rq_src_seqno = seqno;
  rq->rq_timestamp = CURRENT_TIME;
 
  Scheduler::instance().schedule(target_, p, 0.);
+
 }
 
 void
@@ -1665,9 +1620,9 @@ fprintf(stderr, "sending Error from %d at %.2f\n", index, Scheduler::instance().
 
  // Do we need any jitter? Yes
  if (jitter)
-  Scheduler::instance().schedule(target_, p, 0.01*Random::uniform());
+ 	Scheduler::instance().schedule(target_, p, 0.01*Random::uniform());
  else
-  Scheduler::instance().schedule(target_, p, 0.0);
+ 	Scheduler::instance().schedule(target_, p, 0.0);
 
 }
 
@@ -1678,25 +1633,22 @@ fprintf(stderr, "sending Error from %d at %.2f\n", index, Scheduler::instance().
 
 void
 AODV::sendHello() {
+  double now = Scheduler::instance().clock();
   iNode = (MobileNode *) (Node::get_node_by_address (index) );
   xpos = iNode->X();
   ypos = iNode->Y();
-  iEnergy = iNode->energy_model()->energy();
-  prev_pos_x = xpos;
-  prev_pos_y = ypos;
-  packet_sent_hello[index]++;
-  memset(packet_received, 0, sizeof(packet_received));
-  double now = Scheduler::instance().clock();
-  prev_time_hello = now;
+  iEnergy=  iNode->energy_model()->energy();
   FILE *fp;
   fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::sendHello sedang berada di node %d: posisi: %.4f, %.4f energi: %.4f", now, index, xpos, ypos, iEnergy);
-  trustness_value_hello[index] = iEnergy;
+  fprintf(fp, "\n %f fungsi AODV::sendHello sedang berada di node %d", now, index);
   fclose(fp);
+  energy_hello[index]=iEnergy;
 Packet *p = Packet::alloc();
 struct hdr_cmn *ch = HDR_CMN(p);
 struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aodv_reply *rh = HDR_AODV_REPLY(p);
+  times = now;
+
 
 #ifdef DEBUG
 fprintf(stderr, "sending Hello from %d at %.2f\n", index, Scheduler::instance().clock());
@@ -1729,25 +1681,36 @@ fprintf(stderr, "sending Hello from %d at %.2f\n", index, Scheduler::instance().
 
 void
 AODV::recvHello(Packet *p) {
+  double now = Scheduler::instance().clock();
   iNode = (MobileNode *) (Node::get_node_by_address (index) );
   xpos = iNode->X();
   ypos = iNode->Y();
-  iEnergy = iNode->energy_model()->energy();
-//struct hdr_ip *ih = HDR_IP(p);
-struct hdr_aodv_reply *rp = HDR_AODV_REPLY(p);
-struct hdr_cmn *ch = HDR_CMN(p);
-struct hdr_ip *ih = HDR_IP(p);
-  double now = Scheduler::instance().clock();
-  packet_received_hello[ih->saddr()]++;
-  delay_hello[index] = now - prev_time_hello;
-  trustness_value_hello[index] = iEnergy - delay_hello[index];
-  position[index] = sqrt(pow((ypos-prev_pos_y),2) + pow((xpos-prev_pos_x),2));
+  iEnergy=  iNode->energy_model()->energy();
+  double packet_success, packet_failure;
   FILE *fp;
   fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::recvHello sedang berada di node %d: posisi: %.4f, %.4f, energi: %.4f", now, index, xpos, ypos, iEnergy);
-  fprintf(fp, " Packets received from node %d: %d", ih->saddr(), packet_received_hello[ih->saddr()]);
-  fprintf(fp, "\n trust at node %d: %.3f, delay: %f, dist: %f", index, trustness_value_hello[index], delay_hello[index], position[index]);
+  fprintf(fp, "\n %f fungsi AODV::recvHello sedang berada di node %d", now, index);
   fclose(fp);
+  struct hdr_ip *ih = HDR_IP(p);
+struct hdr_aodv_reply *rp = HDR_AODV_REPLY(p);
+  double delays = now - times;
+  if (delays < 0.0013) delay_hello[ih->saddr()] = 1;
+  else delay_hello[ih->saddr()] = -1;
+  //delay_hello[index] = now - time;
+  packet_sent_hello[ih->saddr()]++;
+  packet_received_hello[ih->saddr()]++;
+  energy_hello[index]=iEnergy;
+  if (packet_sent_hello[ih->saddr()]!=0) {
+    packet_success = packet_received_hello[ih->saddr()]/packet_sent_hello[ih->saddr()];
+    packet_failure = 1-packet_success;
+    trust_hello[ih->saddr()] = packet_success - packet_failure + energy_hello[ih->saddr()] + delay_hello[ih->saddr()];
+  }
+  FILE *fp2;
+  fp2 = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f source node: %d, trust: %f, packet success: %f, packet failure: %f, energy: %f, delay nonindex: %f, delay: %f", now, ih->saddr(),
+    trust_hello[ih->saddr()], packet_success, packet_failure, energy_hello[ih->saddr()], delays, delay_hello[ih->saddr()]);
+  fclose(fp);
+
 AODV_Neighbor *nb;
 
  nb = nb_lookup(rp->rp_dst);
@@ -1765,6 +1728,11 @@ AODV_Neighbor *nb;
 void
 AODV::nb_insert(nsaddr_t id) {
   tetangga[index]+=1;
+  double now = Scheduler::instance().clock();
+  FILE *fp;
+  fp = fopen("debug.txt", "a");
+  fprintf(fp, "\n %f fungsi AODV::nb_insert: node %d menambahkan node tetangga %d, jumlah tetangga: %d", now, index, id, tetangga[index]);
+  fclose(fp);
 AODV_Neighbor *nb = new AODV_Neighbor(id);
 
  assert(nb);
@@ -1773,42 +1741,30 @@ AODV_Neighbor *nb = new AODV_Neighbor(id);
  LIST_INSERT_HEAD(&nbhead, nb, nb_link);
  seqno += 2;             // set of neighbors changed
  assert ((seqno%2) == 0);
-  double now = Scheduler::instance().clock();
-  FILE *fp;
-  fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::nb_insert: node %d menambahkan node tetangga %d, jumlah tetangga: %d", now, index, id, tetangga[index]);
-  fclose(fp);
 }
 
 
 AODV_Neighbor*
 AODV::nb_lookup(nsaddr_t id) {
   double now = Scheduler::instance().clock();
-  double temp;
   FILE *fp;
   fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::nb_lookup sedang berada di node %d", now, index);
-  fclose(fp);
+  fprintf(fp, "\n %f fungsi AODV::nb_lookup", now);
+  int count = 0;
+  double temp_trust = 0;
 AODV_Neighbor *nb = nbhead.lh_first;
-  double counter = 0, temp_trust=-1;
-  //int max_index = -1;
+
  for(; nb; nb = nb->nb_link.le_next) {
-  temp = temp + trustness_value_hello[nb->nb_addr];
-  /*FILE *fp2;
-  fp2 = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f tetangga node %d: %d, trust: %.3f", now, index, nb->nb_addr, trustness_value_hello[nb->nb_addr]);
-  fclose(fp2);*/
-  counter++;
-  if (trustness_value_hello[nb->nb_addr] > temp_trust) {
-    temp_trust = trustness_value_hello[nb->nb_addr];
-    max_index[index]=nb->nb_addr;
-  }
+  fprintf(fp, "\nnode %d trust: %f", nb->nb_addr, trust_hello[nb->nb_addr]);
+  //printf("\n")
+  temp_trust = temp_trust + trust_hello[nb->nb_addr];
+  count++;
    if(nb->nb_addr == id) break;
  }
- if(tetangga[index] == 0) max_trust[index]=0;
- else max_trust[index] = temp/counter;
- fp = fopen("debug.txt", "a");
- fprintf(fp, "\n %f avg trust at neighbour node %d: %f", now, index, max_trust[index]);
+ if (temp_trust != 0) {
+  avg_trust[id] = temp_trust/count;
+ }
+ fprintf(fp, "\nAvg trust: %f", avg_trust[id]);
  fclose(fp);
  return nb;
 }

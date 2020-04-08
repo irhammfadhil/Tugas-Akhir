@@ -36,6 +36,7 @@ The AODV code developed by the CMU/MONARCH group was optimized and tuned by Sami
 #include <cmu-trace.h>
 #include <iostream>
 #include <math.h>
+#include <unistd.h>
 //#include <energy-model.h>
 
 #define max(a,b)        ( (a) > (b) ? (a) : (b) )
@@ -55,48 +56,8 @@ int packet_sent[1000], packet_received[1000], left_energy[1000], delay[1000];
 double trustness_value[1000];
 
 int packet_sent_hello[1000], packet_received_hello[1000];
-double energy_hello[1000], delay_hello[1000], signal_hello[1000], trust_hello[1000], times, avg_trust[1000];
-
-/*trustness_value[0]=0.75;
-trustness_value[1]=0.8;
-trustness_value[2]=0.85;
-trustness_value[3]=0.9;
-trustness_value[4]=0.95;
-trustness_value[5]=1.00;
-trustness_value[6]=1.05;
-trustness_value[7]=1.10;
-trustness_value[8]=1.15;
-trustness_value[9]=1.2;
-trustness_value[10]=1.25;
-trustness_value[11]=1.3;
-trustness_value[12]=1.35;
-trustness_value[13]=1.4;
-trustness_value[14]=1.45;
-trustness_value[15]=1.5;
-trustness_value[16]=1.55;
-trustness_value[17]=1.6;
-trustness_value[18]=1.65;
-trustness_value[19]=1.7;
-trustness_value[20]=1.75;
-trustness_value[21]=1.8;
-trustness_value[22]=1.85;
-trustness_value[23]=1.9;
-trustness_value[24]=1.95;
-trustness_value[25]=2.00;
-trustness_value[26]=2.05;
-trustness_value[27]=2.10;
-trustness_value[28]=2.15;
-trustness_value[29]=2.2;
-trustness_value[30]=2.25;
-trustness_value[31]=2.3;
-trustness_value[32]=2.35;
-trustness_value[33]=2.4;
-trustness_value[34]=2.45;
-trustness_value[35]=2.5;
-trustness_value[36]=2.55;
-trustness_value[37]=2.6;
-trustness_value[38]=2.65;
-trustness_value[39]=2.7;*/
+double energy_hello[1000], delay_hello[1000], signal_hello[1000], trust_hello[1000], times, avg_trust[1000], avg_signal[1000];
+int counter;
 
 /*
   TCL Hooks
@@ -130,47 +91,6 @@ AODV::command(int argc, const char*const* argv) {
   fp = fopen("debug.txt", "a");
   fprintf(fp, "\n %f fungsi AODV::command", now);
   fclose(fp);
-  trustness_value[0]=0.75;
-  trustness_value[1]=0.8;
-  trustness_value[2]=0.85;
-  trustness_value[3]=0.9;
-  trustness_value[4]=0.95;
-  trustness_value[5]=1.00;
-  trustness_value[6]=1.05;
-  trustness_value[7]=1.10;
-  trustness_value[8]=1.15;
-  trustness_value[9]=1.2;
-  trustness_value[10]=1.25;
-  trustness_value[11]=1.3;
-  trustness_value[12]=1.35;
-  trustness_value[13]=1.4;
-  trustness_value[14]=1.45;
-  trustness_value[15]=1.5;
-  trustness_value[16]=1.55;
-  trustness_value[17]=1.6;
-  trustness_value[18]=1.65;
-  trustness_value[19]=1.7;
-  trustness_value[20]=1.75;
-  trustness_value[21]=1.8;
-  trustness_value[22]=1.85;
-  trustness_value[23]=1.9;
-  trustness_value[24]=1.95;
-  trustness_value[25]=2.00;
-  trustness_value[26]=2.05;
-  trustness_value[27]=2.10;
-  trustness_value[28]=2.15;
-  trustness_value[29]=2.2;
-  trustness_value[30]=2.25;
-  trustness_value[31]=2.3;
-  trustness_value[32]=2.35;
-  trustness_value[33]=2.4;
-  trustness_value[34]=2.45;
-  trustness_value[35]=2.5;
-  trustness_value[36]=2.55;
-  trustness_value[37]=2.6;
-  trustness_value[38]=2.65;
-  trustness_value[39]=2.7;
-  //calculateTrustness();
   if(argc == 2) {
   Tcl& tcl = Tcl::instance();
     
@@ -914,13 +834,14 @@ aodv_rt_entry *rt;
   xpos = iNode->X();
   ypos = iNode->Y();
   dist = sqrt(pow((ypos-rq->rq_position_y),2) + pow((xpos-rq->rq_position_x),2));
-  recv_signal = p->txinfo_.RxPr;
+  recv_signal = 10*log10(p->txinfo_.RxPr) + 30;
   FILE *fp;
   fp = fopen("debug.txt", "a");
   //fprintf(fp, "\n %f fungsi AODV::recvRequest sedang berada di node %d, posisi %.3f %.3f, jumlah tetangga %d", now, index, xpos, ypos, tetangga[index]);
-  fprintf(fp, "\n %f fungsi AODV::recvRequest sedang berada di node %d, posisi %.3f %.3f, trustness node %.4ff", now, index, xpos, ypos, trustness_value[index]);
-  fprintf(fp, "\n %f Posisi node sebelumnya: (%.3f,%.3f)", now, rq->rq_position_x, rq->rq_position_y);
-  fprintf(fp, "\n %f node sumber: %d, node tujuan: %d", now, rq->rq_src, rq->rq_dst);
+  fprintf(fp, "\n %f fungsi AODV::recvRequest sedang berada di node %d, posisi %.3f %.3f, trustness node %.4ff", now, index, xpos, ypos, 
+    trust_hello[index]);
+  fprintf(fp, "\n %f Posisi node sebelumnya: (%.3f,%.3f), hopcount: %d", now, rq->rq_position_x, rq->rq_position_y, rq->rq_hop_count);
+  fprintf(fp, "\n %f node sumber: %d, node tujuan: %d, hopcount: %d", now, rq->rq_src, rq->rq_dst, rq->rq_hop_count);
   fprintf(fp, "\n %f jarak antara node %d dan node %d adalah: %.3f, recv signal: %.3f", now, index, index2, dist, recv_signal);
   fclose(fp);
 
@@ -945,14 +866,12 @@ aodv_rt_entry *rt;
     return;
   } 
 
+  //jika rreq diterima node >1 kali, drop
+
  if (id_lookup(rq->rq_src, rq->rq_bcast_id)) {
 
 #ifdef DEBUG
   fprintf(stderr, "%s %d: discarding request\n", __FUNCTION__, index);
-  /*FILE *fp;
-  fp = fopen("debug.txt", "a");
-  fprintf(fp, "%s: discarding request\n", __FUNCTION__);
-  fclose(fp);*/
 #endif // DEBUG
  
    Packet::free(p);
@@ -960,35 +879,13 @@ aodv_rt_entry *rt;
  }
 
  if (trust_hello[index] < avg_trust[ih->saddr()] && rq->rq_dst != index) {
+  if (avg_signal[index] < avg_signal[ih->saddr()]) {
+    Packet::free(p);
+    return;
+  }
   Packet::free(p);
   return;
  }
-
- //filter rreq based on neighbor
- /*if (tetangga[index] < 5 && rq->rq_dst != index) {
-  #ifdef DEBUG
-    double now = Scheduler::instance().clock();
-    FILE *fp;
-    fp = fopen("debug.txt", "a");
-    fprintf(fp, "\n %f node %d didrop, jumlah tetangga: %d", now, index, tetangga[index]);
-  #endif
-  Packet::free(p);
-  return;
- }*/
-
- //calculateTrustness();
-
- //coba trustness
- /*if (trustness_value[index] < 0.88 && rq->rq_dst != index) {
-  #ifdef DEBUG
-    double now = Scheduler::instance().clock();
-    FILE *fp;
-    fp = fopen("debug.txt", "a");
-    fprintf(fp, "\n %f node %d didrop, trustness: %.2f", now, index, trustness_value[index]);
-  #endif
-  Packet::free(p);
-  return;
- }*/
 
  /*
   * Cache the broadcast ID
@@ -1057,11 +954,31 @@ rt_update(rt0, rq->rq_src_seqno, rq->rq_hop_count, ih->saddr(),
 
  if(rq->rq_dst == index) {
 
-#ifdef DEBUG
+  //sleep(0.2);
+  counter++;
+  #ifdef DEBUG
    fprintf(stderr, "%d - %s: destination sending reply\n",
                    index, __FUNCTION__);
-#endif // DEBUG
+   fp = fopen("debug.txt", "a");
+   fprintf(fp, "\n %f node destination menerima route request dari %d, no of hop: %d, counter: %d", now, rq->rq_src, rq->rq_hop_count, counter);
+   fclose(fp);
+  #endif // DEBUG
 
+  //if (counter == 2) {
+   // Just to be safe, I use the max. Somebody may have
+   // incremented the dst seqno.
+   /*seqno = max(seqno, rq->rq_dst_seqno)+1;
+   if (seqno%2) seqno++;
+
+   sendReply(rq->rq_src,           // IP Destination
+             1,                    // Hop Count
+             index,                // Dest IP Address
+             seqno,                // Dest Sequence Num
+             MY_ROUTE_TIMEOUT,     // Lifetime
+             rq->rq_timestamp);    // timestamp
+ 
+   Packet::free(p);*/
+  //}
                
    // Just to be safe, I use the max. Somebody may have
    // incremented the dst seqno.
@@ -1406,6 +1323,7 @@ AODV::sendRequest(nsaddr_t dst) {
   index2 = index;
   xpos2 = xpos;
   ypos2 = ypos;
+  counter = 0;
 
   FILE *fp;
   fp = fopen("debug.txt", "a");
@@ -1693,6 +1611,7 @@ AODV::recvHello(Packet *p) {
   fclose(fp);
   struct hdr_ip *ih = HDR_IP(p);
 struct hdr_aodv_reply *rp = HDR_AODV_REPLY(p);
+  signal_hello[index] = 10*log10(p->txinfo_.RxPr) + 30;
   double delays = now - times;
   if (delays < 0.0013) delay_hello[ih->saddr()] = 1;
   else delay_hello[ih->saddr()] = -1;
@@ -1749,22 +1668,25 @@ AODV::nb_lookup(nsaddr_t id) {
   double now = Scheduler::instance().clock();
   FILE *fp;
   fp = fopen("debug.txt", "a");
-  fprintf(fp, "\n %f fungsi AODV::nb_lookup", now);
+  fprintf(fp, "\n %f fungsi AODV::nb_lookup: list tetangga node %d", now, id);
   int count = 0;
   double temp_trust = 0;
+  double temp_signal = 0;
 AODV_Neighbor *nb = nbhead.lh_first;
 
  for(; nb; nb = nb->nb_link.le_next) {
-  fprintf(fp, "\nnode %d trust: %f", nb->nb_addr, trust_hello[nb->nb_addr]);
+  fprintf(fp, "\nnode %d trust: %f, signal: %f", nb->nb_addr, trust_hello[nb->nb_addr], signal_hello[nb->nb_addr]);
   //printf("\n")
   temp_trust = temp_trust + trust_hello[nb->nb_addr];
+  temp_signal = temp_signal + signal_hello[nb->nb_addr];
   count++;
    if(nb->nb_addr == id) break;
  }
- if (temp_trust != 0) {
+ if (temp_trust != 0 && temp_signal != 0) {
   avg_trust[id] = temp_trust/count;
+  avg_signal[id] = temp_signal/count;
  }
- fprintf(fp, "\nAvg trust: %f", avg_trust[id]);
+ fprintf(fp, "\nAvg trust: %f, Avg signal: %f", avg_trust[id], avg_signal[id]);
  fclose(fp);
  return nb;
 }
